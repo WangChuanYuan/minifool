@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import InputLayer, BatchNormalization, Conv2D, MaxPool2D, Dense, Dropout, Flatten
+from keras.layers import BatchNormalization, Conv2D, MaxPool2D, Dense, Dropout, Flatten
 
 """
 2 conv + 3 fc
@@ -10,8 +10,7 @@ class CFC(object):
     def __init__(self, input_shape):
         model = Sequential()
 
-        model.add(InputLayer(input_shape=input_shape))
-        model.add(BatchNormalization())
+        model.add(BatchNormalization(input_shape=input_shape))
 
         model.add(
             Conv2D(64, kernel_size=(5, 5), activation='relu', bias_initializer='RandomNormal',
