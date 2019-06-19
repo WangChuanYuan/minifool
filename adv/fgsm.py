@@ -12,16 +12,15 @@ def attack(images: np.ndarray, shape: tuple):
     model_output_layer = model.layers[-1].output
 
     hacked_images = []
+    idx = 0
     for image in images:
-        print("Generate adversarial sample for image")
-        # Add a 4th dimension for batch size (as Keras expects)
+        idx += 1
+        print("Generate adversarial sample for image {}".format(idx))
+        # Add a 4th dimension for batch size
         original_image = np.expand_dims(image, axis=0)
         original_image = original_image.astype('float32')
         original_image /= 255
 
-        # Pre-calculate the maximum change we will allow to the image
-        # We'll make sure our hacked image never goes past this so it doesn't look funny.
-        # A larger number produces an image faster but risks more distortion.
         max_change_above = original_image + 0.05
         max_change_below = original_image - 0.05
 
@@ -30,7 +29,6 @@ def attack(images: np.ndarray, shape: tuple):
 
         object_type_to_fake = np.argmin(model.predict(original_image)[0])
 
-        # Define the cost function.
         # Our 'cost' will be the likelihood out image is the target class according to the pre-trained model
         cost_function = model_output_layer[0, object_type_to_fake]
 
@@ -42,13 +40,10 @@ def attack(images: np.ndarray, shape: tuple):
         grab_cost_and_gradients_from_model = K.function([model_input_layer, K.learning_phase()],
                                                         [cost_function, gradient_function])
 
-        # How much to update the hacked image in each iteration
         learning_rate = 0.005
 
-        # In a loop, keep adjusting the hacked image slightly so that it tricks the model more and more
-        # until it gets to at least 80% confidence
         cost = 0.0
-        itr = 1
+        itr = 0
         while cost < 0.8:
             # Check how close the image is to our target class and grab the gradients we
             # can use to push it one more step in that direction.
@@ -63,13 +58,15 @@ def attack(images: np.ndarray, shape: tuple):
             hacked_image = np.clip(hacked_image, max_change_below, max_change_above)
             hacked_image = np.clip(hacked_image, 0.0, 1.0)
 
-            print("Iteration: {} Cost: {:.8}%".format(itr, cost * 100))
             itr += 1
-            if itr > 2000:
+            print("Iteration: {} Cost: {:.8}%".format(itr, cost * 100))
+            if itr > 1200:
                 break
 
-        image = hacked_image[0]
-        image *= 255
-        hacked_images.append(image)
+        hacked_image = hacked_image[0]
+        hacked_image *= 255
+        hacked_image = hacked_image.astype('uint8')
+
+        hacked_images.append(hacked_image)
 
     return np.array(hacked_images)
