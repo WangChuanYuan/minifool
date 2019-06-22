@@ -1,22 +1,9 @@
-"""
-A slight modification to Scipy's implementation of differential evolution. To speed up predictions, the entire parameters array is passed to `self.func`, where a neural network model can batch its computations and execute in parallel. Search for `CHANGES` to find all code changes.
-
-Dan Kondratyuk 2018
-
-Original code adapted from
-https://github.com/scipy/scipy/blob/70e61dee181de23fdd8d893eaa9491100e2218d7/scipy/optimize/_differentialevolution.py
-----------
-
-differential_evolution: The differential evolution global optimization algorithm
-Added by Andrew Nelson 2014
-"""
 from __future__ import division, print_function, absolute_import
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize
 from scipy.optimize.optimize import _status_message
 from scipy._lib._util import check_random_state
 from scipy._lib.six import xrange, string_types
-import warnings
 
 __all__ = ['differential_evolution']
 

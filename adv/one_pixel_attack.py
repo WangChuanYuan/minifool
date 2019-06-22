@@ -33,8 +33,8 @@ class PixelAttacker(object):
                 (not targeted_attack and predicted_class != target_class)):
             return True
 
-    def attack(self, img_idx, target=None, pixel_count=40,
-               maxiter=10, popsize=400, verbose=True):
+    def attack(self, img_idx, target=None, pixel_count=50,
+               maxiter=15, popsize=400, verbose=True):
         # Change the target class based on whether this is a targeted attack or not
         targeted_attack = target is not None
         target_class = target if targeted_attack else np.argmax(self.probs[img_idx])
@@ -45,9 +45,11 @@ class PixelAttacker(object):
         # Population multiplier, in terms of the size of the perturbation vector x
         popmul = max(1, popsize // len(bounds))
 
+        original_image = self.imgs[img_idx]
+
         # Format the predict/callback functions for the differential evolution algorithm
-        predict_fn = lambda xs: self.predict_classes(xs, self.imgs[img_idx], target_class, target is None)
-        callback_fn = lambda x, convergence: self.is_attack_success(x, self.imgs[img_idx], target_class,
+        predict_fn = lambda xs: self.predict_classes(xs, original_image, target_class, target is None)
+        callback_fn = lambda x, convergence: self.is_attack_success(x, original_image, target_class,
                                                                     targeted_attack, verbose)
 
         # Call Scipy's Implementation of Differential Evolution
@@ -55,22 +57,24 @@ class PixelAttacker(object):
             predict_fn, bounds, maxiter=maxiter, popsize=popmul,
             recombination=1, atol=-1, callback=callback_fn, polish=False)
 
-        # Calculate some useful statistics to return from this function
-        hacked_image = pb.perturb_image(attack_result.x, self.imgs[img_idx])[0]
-        prior_probs = self.model.predict(np.array([self.imgs[img_idx]]) / 255)[0]
-        predicted_probs = self.model.predict(np.array([hacked_image]) / 255)[0]
-        predicted_class = np.argmax(predicted_probs)
-        actual_class = np.argmax(prior_probs)
-        is_success = predicted_class != actual_class
-        cdiff = prior_probs[actual_class] - predicted_probs[actual_class]
+        hacked_image = pb.perturb_image(attack_result.x, original_image)[0]
 
         if verbose:
+            prior_probs = self.model.predict(np.array([original_image]) / 255)[0]
+            predicted_probs = self.model.predict(np.array([hacked_image]) / 255)[0]
+            predicted_class = np.argmax(predicted_probs)
+            actual_class = np.argmax(prior_probs)
+            is_success = predicted_class != actual_class
+            cdiff = prior_probs[actual_class] - predicted_probs[actual_class]
             print("Image{} attack success:{}".format(img_idx, is_success))
+            print("The predicted class is {}, the actual class is {}".format(actual_class, predicted_class))
+            print("The difference between prior_prob and predicted_prob is {}".format(cdiff))
+            print("--------------------")
 
         return hacked_image
 
-    def attack_all(self):
+    def attack_all(self, verbose=True):
         hacked_images = []
         for idx in range(len(self.imgs)):
-            hacked_images.append(self.attack(idx))
+            hacked_images.append(self.attack(idx, verbose=verbose))
         return hacked_images

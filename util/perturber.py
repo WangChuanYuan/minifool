@@ -20,7 +20,7 @@ def perturb_image(xs, img):
         # i.e., [[x,y,c], ...]
         pixels = np.split(x, len(x) // 3)
         for pixel in pixels:
-            # At each pixel's x,y position, assign its rgb value
+            # At each pixel's x,y position, assign its gray value
             x_pos, y_pos, c = pixel
             img[x_pos, y_pos, 0] = c
 

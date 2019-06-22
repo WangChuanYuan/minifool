@@ -5,7 +5,6 @@ from keras.models import load_model
 
 
 def attack(images: np.ndarray, shape: tuple):
-    assert images.shape == shape
 
     model: Model = load_model('models/cbn.h5')
     model_input_layer = model.layers[0].input
