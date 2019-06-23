@@ -1,24 +1,32 @@
 import numpy as np
-from PIL import Image
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.python.ops.image_ops_impl import ssim
 
 
-def show_img(image: np.ndarray):
-    img = Image.fromarray(np.squeeze(image))
-    img.show()
+class Comparator(object):
+    def __init__(self):
+        graph = tf.Graph()
+        with graph.as_default():
+            image1 = tf.placeholder(tf.uint8, shape=(28, 28, 1), name='image1')
+            image2 = tf.placeholder(tf.uint8, shape=(28, 28, 1), name='image2')
+            ssim_val = ssim(image1, image2, 255)
+        self.graph = graph
+        self.image1 = image1
+        self.image2 = image2
+        self.ssim = ssim_val
+
+    def compare(self, image1, image2, show=False):
+        if show:
+            plt.figure()
+            plt.subplot(1, 2, 1)
+            plt.imshow(np.squeeze(image1))
+            plt.subplot(1, 2, 2)
+            plt.imshow(np.squeeze(image2))
+            plt.show()
+        with tf.Session(graph=self.graph) as sess:
+            ssim_val = sess.run(self.ssim, feed_dict={self.image1: image1, self.image2: image2})
+        return ssim_val
 
 
-def cal_ssim(image1: np.ndarray, image2: np.ndarray):
-    tf.reset_default_graph()
-    with tf.Session() as sess:
-        ssim_val = sess.run(ssim(tf.convert_to_tensor(image1), tf.convert_to_tensor(image2), 255))
-        print("SSIM: {}".format(ssim_val))
-
-
-def compare(image1, image2, show=True, ssim=True):
-    if show:
-        show_img(image1)
-        show_img(image2)
-    if ssim:
-        cal_ssim(image2, image2)
+comparator = Comparator()

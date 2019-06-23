@@ -1,6 +1,7 @@
 import numpy as np
 
 import util.perturber as pb
+from util.image_comparator import comparator
 from util.differential_evolution import differential_evolution
 
 
@@ -33,7 +34,7 @@ class PixelAttacker(object):
                 (not targeted_attack and predicted_class != target_class)):
             return True
 
-    def attack(self, img_idx, target=None, pixel_count=50,
+    def attack(self, img_idx, target=None, pixel_count=100,
                maxiter=15, popsize=400, verbose=True):
         # Change the target class based on whether this is a targeted attack or not
         targeted_attack = target is not None
@@ -69,6 +70,7 @@ class PixelAttacker(object):
             print("Image{} attack success:{}".format(img_idx, is_success))
             print("The predicted class is {}, the actual class is {}".format(actual_class, predicted_class))
             print("The difference between prior_prob and predicted_prob is {}".format(cdiff))
+            print("SSIM: {}".format(comparator.compare(original_image, hacked_image, show=True)))
             print("--------------------")
 
         return hacked_image
