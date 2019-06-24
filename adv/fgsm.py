@@ -1,5 +1,7 @@
 import numpy as np
 from keras import backend as K
+from keras.layers import Dense
+from keras.models import Model
 
 
 class MIFGSMAttacker(object):
@@ -8,9 +10,17 @@ class MIFGSMAttacker(object):
         self.imgs = imgs
         self.dimensions = dimensions
 
+    def get_logits_model(self):
+        dense_layer = Dense(10)
+        logits = dense_layer(self.model.layers[-2].output)
+        logits_model = Model(inputs=[self.model.layers[0].input], outputs=[logits])
+        dense_layer.set_weights(self.model.layers[-1].get_weights())
+        return logits_model
+
     def attack_all(self, target=None, verbose=True):
-        model_input_layer = self.model.layers[0].input
-        model_output_layer = self.model.layers[-1].output
+        logits_model = self.get_logits_model()
+        model_input = logits_model.layers[0].input
+        model_output = logits_model.layers[-1].output
 
         hacked_images = []
         idx = 0
@@ -30,16 +40,15 @@ class MIFGSMAttacker(object):
             # Decide object_type_to_fake on whether is target attack
             object_type_to_fake = np.argmax(self.model.predict(original_image)[0]) if target is None else target
 
-            # Our 'cost' will be the likelihood out image is the target class according to the pre-trained model
-            cost_function = model_output_layer[0, object_type_to_fake]
+            cost_function = model_output[0, object_type_to_fake]
 
-            # We'll ask Keras to calculate the gradient based on the input image and the currently predicted class
-            # In this case, referring to "model_input_layer" will give us back image we are hacking.
-            gradient_function = K.gradients(cost_function, model_input_layer)[0]
+            confidence_function = self.model.layers[-1].output[0, object_type_to_fake]
+
+            gradient_function = K.gradients(cost_function, model_input)[0]
 
             # Create a Keras function that we can call to calculate the current cost and gradient
-            grab_cost_and_gradients_from_model = K.function([model_input_layer, K.learning_phase()],
-                                                            [cost_function, gradient_function])
+            grab_cost_and_gradients_from_model = K.function([model_input, K.learning_phase()],
+                                                            [cost_function, confidence_function, gradient_function])
 
             learning_rate = 0.0005
             momentum = 0
@@ -51,11 +60,8 @@ class MIFGSMAttacker(object):
             while not finish:
                 itr += 1
 
-                # Check how close the image is to our target class and grab the gradients we
-                # can use to push it one more step in that direction.
                 # Note: It's really important to pass in '0' for the Keras learning mode here!
-                # Keras layers behave differently in prediction vs. train modes!
-                cost, gradients = grab_cost_and_gradients_from_model([hacked_image, 0])
+                cost, confidence, gradients = grab_cost_and_gradients_from_model([hacked_image, 0])
 
                 if target is None:
                     gradients = -gradients
@@ -69,16 +75,16 @@ class MIFGSMAttacker(object):
                 hacked_image = np.clip(hacked_image, 0.0, 1.0)
 
                 if target is None:
-                    if itr > 1500 or cost < 0.1:
+                    if itr > 1000 or confidence < 0.1:
                         finish = True
-                        success = True if cost < 0.1 else False
+                        success = True if confidence < 0.1 else False
                 else:
-                    if itr > 1500 or cost > 0.8:
+                    if itr > 1000 or confidence > 0.8:
                         finish = True
-                        success = True if cost > 0.8 else False
+                        success = True if confidence > 0.8 else False
 
                 if verbose:
-                    print("Iteration: {} Cost: {:.8}%".format(itr, cost * 100))
+                    print("Iteration: {} Confidence: {:.8}%".format(itr, confidence * 100))
                     if finish:
                         print("Image{} attack success: {}".format(idx, success))
                         print("--------------------")  # end while
