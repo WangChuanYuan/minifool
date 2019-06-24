@@ -34,7 +34,7 @@ class PixelAttacker(object):
                 (not targeted_attack and predicted_class != target_class)):
             return True
 
-    def attack(self, img_idx, target=None, pixel_count=100,
+    def attack(self, img_idx, target=None, pixel_count=80,
                maxiter=15, popsize=400, verbose=True):
         # Change the target class based on whether this is a targeted attack or not
         targeted_attack = target is not None
@@ -79,4 +79,4 @@ class PixelAttacker(object):
         hacked_images = []
         for idx in range(len(self.imgs)):
             hacked_images.append(self.attack(idx, verbose=verbose))
-        return hacked_images
+        return np.array(hacked_images)
