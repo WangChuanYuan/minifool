@@ -78,8 +78,7 @@ class MIFGSMAttacker(object):
                     if target is None:
                         gradients = -gradients
 
-                    velocity = gradients / np.linalg.norm(
-                        np.reshape(gradients, self.dimensions[0] * self.dimensions[1]), ord=1)
+                    velocity = gradients / np.mean(np.abs(gradients), axis=(1, 2, 3), keepdims=True)
                     momentum = decay_factor * momentum + velocity
                     hacked_image += np.sign(gradients) * epsilon
 
@@ -87,22 +86,23 @@ class MIFGSMAttacker(object):
                     hacked_image = np.clip(hacked_image, max_change_below, max_change_above)
                     hacked_image = np.clip(hacked_image, 0.0, 1.0)
 
-                    confidence= predict_from_model([hacked_image, 0])[0]
-                    predict_class = np.argmax(confidence)
+                    probs = predict_from_model([hacked_image, 0])[0]
+                    predict_class = np.argmax(probs)
+                    confidence = probs[target_class]
 
                     if verbose:
-                        print("Step{}: confidence {:.8}%".format(step, confidence[target_class] * 100))
+                        print("Step{}: confidence {:.8}%".format(step, confidence * 100))
 
-                    if step > 800:
+                    if step > 600:
                         finish = True
                         break
 
                     if target is None:
-                        if target_class != predict_class:
+                        if confidence < 0.05 and target_class != predict_class:
                             success = True
                             break
                     else:
-                        if target_class == predict_class:
+                        if confidence > 0.9 and target_class == predict_class:
                             success = True
                             break  # End inner for
             # End outer for

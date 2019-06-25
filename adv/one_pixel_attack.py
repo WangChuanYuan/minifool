@@ -53,7 +53,7 @@ class PixelAttacker(object):
         predicted_class = np.argmax(confidence)
 
         # If the prediction is what we want (misclassification or targeted classification), return True
-        if (verbose):
+        if verbose:
             print('Confidence:', confidence[target_class])
         if ((targeted_attack and predicted_class == target_class) or
                 (not targeted_attack and predicted_class != target_class)):
