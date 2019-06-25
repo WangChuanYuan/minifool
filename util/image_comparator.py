@@ -20,9 +20,9 @@ class Comparator(object):
         if show:
             plt.figure()
             plt.subplot(1, 2, 1)
-            plt.imshow(np.squeeze(image1))
+            plt.imshow(np.squeeze(image1), cmap='gray')
             plt.subplot(1, 2, 2)
-            plt.imshow(np.squeeze(image2))
+            plt.imshow(np.squeeze(image2), cmap='gray')
             plt.show()
         with tf.Session(graph=self.graph) as sess:
             ssim_val = sess.run(self.ssim, feed_dict={self.image1: image1, self.image2: image2})

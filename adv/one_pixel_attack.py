@@ -1,4 +1,6 @@
 import numpy as np
+from keras import Model
+from keras.layers import Dense
 
 from util.image_comparator import comparator
 from util.differential_evolution import differential_evolution
@@ -8,6 +10,8 @@ class PixelAttacker(object):
     def __init__(self, model, imgs, dimensions=(28, 28, 1)):
         self.model = model
         self.imgs = imgs
+        self.logits_model = PixelAttacker.get_logits_model(model)
+        self.logits = self.logits_model.predict(imgs / 255)
         self.probs = model.predict(imgs / 255)
         self.dimensions = dimensions
 
@@ -18,45 +22,47 @@ class PixelAttacker(object):
         if xs.ndim < 2:
             xs = np.array([xs])
 
-        # Copy the image n == len(xs) times so that we can
         # create n new perturbed images
         tile = [len(xs)] + [1] * (xs.ndim + 1)
         imgs = np.tile(img, tile)
 
-        # Make sure to floor the members of xs as int types
-        xs = xs.astype(int)
+        xs = xs.astype(float)
 
         for x, img in zip(xs, imgs):
             # Split x into an array of 3-tuples (perturbation pixels)
             # i.e., [[x,y,c], ...]
             pixels = np.split(x, len(x) // 3)
             for pixel in pixels:
-                # At each pixel's x,y position, assign its gray value
                 x_pos, y_pos, c = pixel
+                x_pos = int(x_pos)
+                y_pos = int(y_pos)
                 img[x_pos, y_pos, 0] = c
 
         return imgs
 
-    # The untargeted attack is to minimize the confidence of the model in the correct target class
-    def predict_classes(self, xs, img, target_class, minimize=True):
-        # Perturb the image with the given pixel(s) x and get the prediction of the model
+    @staticmethod
+    def get_logits_model(model):
+        dense_layer = Dense(10)
+        logits = dense_layer(model.layers[-2].output)
+        logits_model = Model(inputs=[model.layers[0].input], outputs=[logits])
+        dense_layer.set_weights(model.layers[-1].get_weights())
+        return logits_model
+
+    def predict_classes(self, xs, img, target_class, targeted_attack=False):
         imgs_perturbed = PixelAttacker.perturb_image(xs, img)
-        predictions = self.model.predict(imgs_perturbed / 255)[:, target_class]
-        # This function should always be minimized, so return its complement if needed
-        return predictions if minimize else 1 - predictions
+        logits = self.logits_model.predict(imgs_perturbed)[:, target_class]
+        return logits if not targeted_attack else -logits
 
     def is_attack_success(self, x, img, target_class, targeted_attack=False, verbose=False):
-        # Perturb the image with the given pixel(s) and get the prediction of the model
-        attack_image = PixelAttacker.perturb_image(x, img)
+        images_perturbed = PixelAttacker.perturb_image(x, img)
 
-        confidence = self.model.predict(attack_image / 255)[0]
-        predicted_class = np.argmax(confidence)
+        probs = self.model.predict(images_perturbed)[0]
+        confidence = probs[target_class]
 
-        # If the prediction is what we want (misclassification or targeted classification), return True
         if verbose:
-            print('Confidence:', confidence[target_class])
-        if ((targeted_attack and predicted_class == target_class) or
-                (not targeted_attack and predicted_class != target_class)):
+            print('Confidence:', confidence)
+        if ((targeted_attack and confidence > 0.9) or
+                (not targeted_attack and confidence < 0.1)):
             return True
 
     def attack(self, img_idx, target=None, pixel_count=80,
@@ -66,27 +72,30 @@ class PixelAttacker(object):
         target_class = target if targeted_attack else np.argmax(self.probs[img_idx])
 
         dim_x, dim_y, dim_c = self.dimensions
-        bounds = [(0, dim_x), (0, dim_y), (0, 256)] * pixel_count
+        bounds = [(0, dim_x), (0, dim_y), (0, 1)] * pixel_count
 
         # Population multiplier, in terms of the size of the perturbation vector x
         popmul = max(1, popsize // len(bounds))
 
-        original_image = self.imgs[img_idx]
+        original_image = self.imgs[img_idx] / 255
 
         # Format the predict/callback functions for the differential evolution algorithm
-        predict_fn = lambda xs: self.predict_classes(xs, original_image, target_class, target is None)
+        predict_fn = lambda xs: self.predict_classes(xs, original_image, target_class, target is not None)
         callback_fn = lambda x, convergence: self.is_attack_success(x, original_image, target_class,
                                                                     targeted_attack, verbose)
 
-        # Call Scipy's Implementation of Differential Evolution
         attack_result = differential_evolution(
             predict_fn, bounds, maxiter=maxiter, popsize=popmul,
             recombination=1, atol=-1, callback=callback_fn, polish=False)
 
         hacked_image = PixelAttacker.perturb_image(attack_result.x, original_image)[0]
+        original_image *= 255
+        original_image = original_image.astype('uint8')
+        hacked_image *= 255
+        hacked_image = hacked_image.astype('uint8')
 
         if verbose:
-            prior_probs = self.model.predict(np.array([original_image]) / 255)[0]
+            prior_probs = self.probs[img_idx]
             predicted_probs = self.model.predict(np.array([hacked_image]) / 255)[0]
             predicted_class = np.argmax(predicted_probs)
             actual_class = np.argmax(prior_probs)
