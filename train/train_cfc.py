@@ -16,7 +16,7 @@ if __name__ == '__main__':
     cfc = CFC(input_shape).model()
     cfc.summary()
     cfc.compile(optimizer=Adam(decay=0.001), loss='sparse_categorical_crossentropy', metrics=['acc'])
-    cfc.fit(x=x_train, y=y_train, validation_split=0.15, batch_size=256, epochs=30, verbose=1,
+    cfc.fit(x=x_train, y=y_train, validation_data=(x_test, y_test), batch_size=256, epochs=30, verbose=1,
              callbacks=[ReduceLROnPlateau(monitor='val_acc', patience=3, verbose=1, factor=0.5, min_lr=0.00001),
-                        ModelCheckpoint(filepath='../models/cfc.h5', save_best_only=True, monitor='val_acc')])
+                        ModelCheckpoint(filepath='../models/cfc_v1.h5', save_best_only=True, monitor='val_acc')])
     score = cfc.evaluate(x_test, y_test, verbose=1)

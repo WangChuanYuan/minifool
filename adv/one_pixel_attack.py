@@ -11,7 +11,6 @@ class PixelAttacker(object):
         self.model = model
         self.imgs = imgs
         self.logits_model = PixelAttacker.get_logits_model(model)
-        self.logits = self.logits_model.predict(imgs / 255)
         self.probs = model.predict(imgs / 255)
         self.dimensions = dimensions
 
@@ -48,7 +47,7 @@ class PixelAttacker(object):
         dense_layer.set_weights(model.layers[-1].get_weights())
         return logits_model
 
-    def predict_classes(self, xs, img, target_class, targeted_attack=False):
+    def predict_logits(self, xs, img, target_class, targeted_attack=False):
         imgs_perturbed = PixelAttacker.perturb_image(xs, img)
         logits = self.logits_model.predict(imgs_perturbed)[:, target_class]
         return logits if not targeted_attack else -logits
@@ -65,7 +64,7 @@ class PixelAttacker(object):
                 (not targeted_attack and confidence < 0.1)):
             return True
 
-    def attack(self, img_idx, target=None, pixel_count=80,
+    def attack(self, img_idx, target=None, pixel_count=70,
                maxiter=15, popsize=400, verbose=True):
         # Change the target class based on whether this is a targeted attack or not
         targeted_attack = target is not None
@@ -80,7 +79,7 @@ class PixelAttacker(object):
         original_image = self.imgs[img_idx] / 255
 
         # Format the predict/callback functions for the differential evolution algorithm
-        predict_fn = lambda xs: self.predict_classes(xs, original_image, target_class, target is not None)
+        predict_fn = lambda xs: self.predict_logits(xs, original_image, target_class, target is not None)
         callback_fn = lambda x, convergence: self.is_attack_success(x, original_image, target_class,
                                                                     targeted_attack, verbose)
 

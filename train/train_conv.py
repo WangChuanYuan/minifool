@@ -15,6 +15,6 @@ if __name__ == '__main__':
     conv = Conv(input_shape).model()
     conv.summary()
     conv.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['acc'])
-    conv.fit(x=x_train, y=y_train, validation_split=0.2, batch_size=64, epochs=50, verbose=1,
-             callbacks=[ModelCheckpoint(filepath='../models/conv.h5', save_best_only=True, monitor='val_acc')])
+    conv.fit(x=x_train, y=y_train, validation_data=(x_test, y_test), batch_size=64, epochs=50, verbose=1,
+             callbacks=[ModelCheckpoint(filepath='../models/conv_v1.h5', save_best_only=True, monitor='val_acc')])
     score = conv.evaluate(x_test, y_test, verbose=1)
