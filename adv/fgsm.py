@@ -5,6 +5,8 @@ from keras import backend as K
 from keras.layers import Dense
 from keras.models import Model
 
+from util.image_comparator import comparator
+
 
 class MIFGSMAttacker(object):
     def __init__(self, model, imgs, dimensions=(28, 28, 1)):
@@ -20,8 +22,8 @@ class MIFGSMAttacker(object):
         return logits_model
 
     def attack_all(self,
-                   epsilons=0.0005,
-                   epsilons_max=0.005,
+                   epsilons=0.15,
+                   epsilons_max=0.5,
                    steps=100,
                    epsilon_steps=100,
                    decay_factor=1,
@@ -40,8 +42,9 @@ class MIFGSMAttacker(object):
             original_image = original_image.astype('float32')
             original_image /= 255
 
-            max_change_above = original_image + 0.05
-            max_change_below = original_image - 0.05
+            # To attack successfully, do not use clip any more
+            # max_change_above = original_image + 0.05
+            # max_change_below = original_image - 0.05
 
             hacked_image = np.copy(original_image)
 
@@ -83,7 +86,7 @@ class MIFGSMAttacker(object):
                     hacked_image += np.sign(gradients) * epsilon
 
                     # Ensure that the image doesn't change too much
-                    hacked_image = np.clip(hacked_image, max_change_below, max_change_above)
+                    # hacked_image = np.clip(hacked_image, max_change_below, max_change_above)
                     hacked_image = np.clip(hacked_image, 0.0, 1.0)
 
                     probs = predict_from_model([hacked_image, 0])[0]
@@ -112,7 +115,13 @@ class MIFGSMAttacker(object):
             hacked_image = hacked_image.astype('uint8')
             hacked_images.append(hacked_image)
 
-            print("Image{} attack success: {}".format(idx, success))
-            print("--------------------")
+            original_image = original_image[0]
+            original_image *= 255
+            original_image = original_image.astype('uint8')
+
+            if verbose:
+                print("Image{} attack success: {}".format(idx, success))
+                print("SSIM: {}".format(comparator.compare(original_image, hacked_image, show=True)))
+                print("--------------------")
 
         return np.array(hacked_images)

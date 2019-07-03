@@ -10,7 +10,7 @@ def aiTest(images: np.ndarray, shape: tuple):
     assert images.shape == shape
 
     target = load_model('models/cfc_v1.h5')
-    attacker = PixelAttacker(target, images)
+    attacker = MIFGSMAttacker(target, images)
     return attacker.attack_all(verbose=True)
 
 
@@ -20,9 +20,9 @@ if __name__ == '__main__':
 
     x = np.array(x_train[300:320]).astype('float32')
     y = y_train[300:320]
-    # samples = aiTest(x, x.shape)
-    # np.save('gen/samples300_320.npy', samples)
-    model = load_model('models/conv_v1.h5')
+    samples = aiTest(x, x.shape)
+    np.save('gen/samples300_320.npy', samples)
+    model = load_model('models/cfc_v1.h5')
     correct = model.evaluate(x/255, y)
     gen = np.load('gen/samples300_320.npy').astype('float32')
     fool = model.evaluate(gen/255, y)
