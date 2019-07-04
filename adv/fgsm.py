@@ -24,7 +24,7 @@ class MIFGSMAttacker(object):
     def attack_all(self,
                    epsilons=0.15,
                    epsilons_max=0.5,
-                   steps=100,
+                   steps=1,
                    epsilon_steps=100,
                    decay_factor=1,
                    target=None,
@@ -32,6 +32,16 @@ class MIFGSMAttacker(object):
         logits_model = self.get_logits_model()
         model_input = logits_model.layers[0].input
         model_output = logits_model.layers[-1].output
+
+        # Create a Keras Tensor
+        target_fn = K.placeholder(dtype='int32')
+        logits_fn = model_output[0][target_fn]
+        predict_fn = self.model.layers[-1].output[0]
+        gradient_fn = K.gradients(logits_fn, model_input)[0]
+
+        # Note: It's really important to pass in '0' for the Keras learning mode when used
+        logits_and_gradients_from_model = K.function([model_input, target_fn, K.learning_phase()], [logits_fn, gradient_fn])
+        predict_from_model = K.function([model_input, K.learning_phase()], [predict_fn])
 
         hacked_images = []
         idx = 0
@@ -52,15 +62,6 @@ class MIFGSMAttacker(object):
             actual_class = np.argmax(self.model.predict(original_image)[0])
             target_class = actual_class if target is None else target
 
-            # Create a Keras function
-            cost_fn = model_output[0, target_class]
-            predict_fn = self.model.layers[-1].output[0]
-            gradient_fn = K.gradients(cost_fn, model_input)[0]
-
-            # Note: It's really important to pass in '0' for the Keras learning mode when used
-            cost_and_gradients_from_logits_model = K.function([model_input, K.learning_phase()], [cost_fn, gradient_fn])
-            predict_from_model = K.function([model_input, K.learning_phase()], [predict_fn])
-
             if not isinstance(epsilons, Iterable):
                 epsilons = np.linspace(epsilons, epsilons_max, num=epsilon_steps)
 
@@ -76,7 +77,7 @@ class MIFGSMAttacker(object):
                 for i in range(steps):
                     step += 1
 
-                    cost, gradients = cost_and_gradients_from_logits_model([hacked_image, 0])
+                    logits, gradients = logits_and_gradients_from_model([hacked_image, target_class, 0])
 
                     if target is None:
                         gradients = -gradients
@@ -121,7 +122,7 @@ class MIFGSMAttacker(object):
 
             if verbose:
                 print("Image{} attack success: {}".format(idx, success))
-                print("SSIM: {}".format(comparator.compare(original_image, hacked_image, show=True)))
+                print("SSIM: {}".format(comparator.compare(original_image, hacked_image, show=False)))
                 print("--------------------")
 
         return np.array(hacked_images)

@@ -3,7 +3,6 @@ from keras.datasets import fashion_mnist
 from keras.models import load_model
 
 from adv.fgsm import MIFGSMAttacker
-from adv.one_pixel_attack import PixelAttacker
 
 
 def aiTest(images: np.ndarray, shape: tuple):
@@ -18,11 +17,11 @@ if __name__ == '__main__':
     (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
     x_train, x_test, y_train, y_test = np.expand_dims(x_train, -1), np.expand_dims(x_test, -1), np.expand_dims(y_train, -1), np.expand_dims(y_test, -1)
 
-    x = np.array(x_train[300:320]).astype('float32')
-    y = y_train[300:320]
-    samples = aiTest(x, x.shape)
-    np.save('gen/samples300_320.npy', samples)
-    model = load_model('models/cfc_v1.h5')
+    x = np.array(x_test[1000:2000]).astype('float32')
+    y = y_test[1000:2000]
+    # samples = aiTest(x, x.shape)
+    # np.save('gen/samples1000_1200.npy', samples)
+    model = load_model('models/cfc.h5')
     correct = model.evaluate(x/255, y)
-    gen = np.load('gen/samples300_320.npy').astype('float32')
+    gen = np.load('gen/samples1000_1200.npy').astype('float32')
     fool = model.evaluate(gen/255, y)
