@@ -22,10 +22,10 @@ class MIFGSMAttacker(object):
         return logits_model
 
     def attack_all(self,
-                   epsilons=0.15,
-                   epsilons_max=0.5,
+                   epsilons=0.1,
+                   epsilons_max=0.2,
                    steps=1,
-                   epsilon_steps=100,
+                   epsilon_steps=80,
                    decay_factor=1,
                    target=None,
                    verbose=True):
@@ -44,6 +44,7 @@ class MIFGSMAttacker(object):
         predict_from_model = K.function([model_input, K.learning_phase()], [predict_fn])
 
         hacked_images = []
+        ssim_total = 0.0
         idx = 0
         for image in self.imgs:
             idx += 1
@@ -82,8 +83,8 @@ class MIFGSMAttacker(object):
                     if target is None:
                         gradients = -gradients
 
-                    velocity = gradients / np.mean(np.abs(gradients), axis=(1, 2, 3), keepdims=True)
-                    momentum = decay_factor * momentum + velocity
+                    # velocity = gradients / np.mean(np.abs(gradients), axis=(1, 2, 3), keepdims=True)
+                    # momentum = decay_factor * momentum + velocity
                     hacked_image += np.sign(gradients) * epsilon
 
                     # Ensure that the image doesn't change too much
@@ -97,12 +98,12 @@ class MIFGSMAttacker(object):
                     if verbose:
                         print("Step{}: confidence {:.8}%".format(step, confidence * 100))
 
-                    if step > 600:
+                    if step > 40:
                         finish = True
                         break
 
                     if target is None:
-                        if confidence < 0.05 and target_class != predict_class:
+                        if confidence < 1e-10 and target_class != predict_class:
                             success = True
                             break
                     else:
@@ -121,8 +122,14 @@ class MIFGSMAttacker(object):
             original_image = original_image.astype('uint8')
 
             if verbose:
+                ssim_val = comparator.compare(original_image, hacked_image, show=False)
+                ssim_total += ssim_val
                 print("Image{} attack success: {}".format(idx, success))
-                print("SSIM: {}".format(comparator.compare(original_image, hacked_image, show=False)))
+                print("SSIM: {}".format(ssim_val))
                 print("--------------------")
+
+        if verbose:
+            print('Finished')
+            print('SSIM_AVERAGE: {}'.format(ssim_total / idx))
 
         return np.array(hacked_images)

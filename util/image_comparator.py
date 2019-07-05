@@ -1,7 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.python.ops.image_ops_impl import ssim
+
+try:
+    from tensorflow.python.ops.image_ops_impl import ssim
+except:
+    from tensorflow.image import ssim
 
 
 class Comparator(object):
@@ -17,13 +21,13 @@ class Comparator(object):
         self.ssim = ssim_val
 
     def compare(self, image1, image2, show=False):
-        if show:
-            plt.figure()
-            plt.subplot(1, 2, 1)
-            plt.imshow(np.squeeze(image1), cmap='gray')
-            plt.subplot(1, 2, 2)
-            plt.imshow(np.squeeze(image2), cmap='gray')
-            plt.show()
+        # if show:
+        #     plt.figure()
+        #     plt.subplot(1, 2, 1)
+        #     plt.imshow(np.squeeze(image1), cmap='gray')
+        #     plt.subplot(1, 2, 2)
+        #     plt.imshow(np.squeeze(image2), cmap='gray')
+        #     plt.show()
         with tf.Session(graph=self.graph) as sess:
             ssim_val = sess.run(self.ssim, feed_dict={self.image1: image1, self.image2: image2})
         return ssim_val
